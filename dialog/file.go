@@ -98,6 +98,8 @@ type FileDialog struct {
 	initialFileName string
 	// this will be the initial view in a FileDialog
 	initialView ViewLayout
+	// this will set the initial state of the show hidden files toggle
+	showHidden bool
 }
 
 // Declare conformity to Dialog interface
@@ -689,7 +691,7 @@ func (f *FileDialog) effectiveStartingDir() fyne.ListableURI {
 }
 
 func showFile(file *FileDialog) *fileDialog {
-	d := &fileDialog{file: file, initialFileName: file.initialFileName, view: GridView}
+	d := &fileDialog{file: file, initialFileName: file.initialFileName, showHidden: file.showHidden, view: GridView}
 	ui := d.makeUI()
 	pad := theme.Padding()
 	itemMin := d.newFileItem(storage.NewFileURI("filename.txt"), false, false).MinSize()
@@ -860,6 +862,18 @@ func (f *FileDialog) SetView(v ViewLayout) {
 	f.initialView = v
 	if f.dialog != nil {
 		f.dialog.setView(v)
+	}
+}
+
+// SetShowHidden sets whether the dialog should display hidden files.
+// This is normally called before the dialog is shown.
+//
+// Since: 2.7
+func (f *FileDialog) SetShowHidden(show bool) {
+	f.showHidden = show
+	if f.dialog != nil {
+		f.dialog.showHidden = show
+		f.dialog.refreshDir(f.dialog.dir)
 	}
 }
 

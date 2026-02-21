@@ -297,6 +297,81 @@ func TestHiddenFiles(t *testing.T) {
 	assert.NotNil(t, target, "Failed, .hidden not found in testdata")
 }
 
+func TestSetShowHidden(t *testing.T) {
+	dir, err := storage.ListerForURI(storage.NewFileURI("testdata"))
+	assert.NoError(t, err)
+
+	// git does not preserve windows hidden flag, so we have to set it.
+	// just an empty function for non windows builds
+	hidden, _ := storage.Child(dir, ".hidden")
+	err = hideFile(hidden.Path())
+	assert.NoError(t, err)
+
+	win := test.NewTempWindow(t, widget.NewLabel("Content"))
+
+	t.Run("before show", func(t *testing.T) {
+		d := NewFileOpen(func(file fyne.URIReadCloser, err error) {
+		}, win)
+		d.SetLocation(dir)
+		d.SetShowHidden(true)
+		d.Show()
+
+		popup := win.Canvas().Overlays().Top().(*widget.PopUp)
+		defer win.Canvas().Overlays().Remove(popup)
+		assert.NotNil(t, popup)
+
+		ui := popup.Content.(*fyne.Container)
+		files := ui.Objects[0].(*container.Split).Trailing.(*fyne.Container).Objects[0].(*container.Scroll).Content.(*fyne.Container).Objects[0].(*widget.GridWrap)
+		objects := test.TempWidgetRenderer(t, files).Objects()[0].(*container.Scroll).Content.(*fyne.Container).Objects
+
+		var target *fileDialogItem
+		for _, icon := range objects {
+			item := test.TempWidgetRenderer(t, icon.(fyne.Widget)).Objects()[1].(*fileDialogItem)
+			if item.name == ".hidden" {
+				target = item
+			}
+		}
+		assert.NotNil(t, target, ".hidden should be visible when SetShowHidden(true) is called before Show()")
+	})
+
+	t.Run("after show", func(t *testing.T) {
+		d := NewFileOpen(func(file fyne.URIReadCloser, err error) {
+		}, win)
+		d.SetLocation(dir)
+		d.Show()
+
+		popup := win.Canvas().Overlays().Top().(*widget.PopUp)
+		defer win.Canvas().Overlays().Remove(popup)
+		assert.NotNil(t, popup)
+
+		ui := popup.Content.(*fyne.Container)
+		files := ui.Objects[0].(*container.Split).Trailing.(*fyne.Container).Objects[0].(*container.Scroll).Content.(*fyne.Container).Objects[0].(*widget.GridWrap)
+		objects := test.TempWidgetRenderer(t, files).Objects()[0].(*container.Scroll).Content.(*fyne.Container).Objects
+
+		// hidden files should not be visible initially
+		var target *fileDialogItem
+		for _, icon := range objects {
+			item := test.TempWidgetRenderer(t, icon.(fyne.Widget)).Objects()[1].(*fileDialogItem)
+			if item.name == ".hidden" {
+				target = item
+			}
+		}
+		assert.Nil(t, target, ".hidden should not be visible by default")
+
+		// call SetShowHidden on already-shown dialog
+		d.SetShowHidden(true)
+
+		target = nil
+		for _, icon := range objects {
+			item := test.TempWidgetRenderer(t, icon.(fyne.Widget)).Objects()[1].(*fileDialogItem)
+			if item.name == ".hidden" {
+				target = item
+			}
+		}
+		assert.NotNil(t, target, ".hidden should be visible after SetShowHidden(true) on shown dialog")
+	})
+}
+
 func TestShowFileSave(t *testing.T) {
 	var chosen fyne.URIWriteCloser
 	var saveErr error
